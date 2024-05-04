@@ -7,7 +7,7 @@ import random as rnd
 
     
 # Distribution decides how many patches are used for training and how many are used for validation.
-def partition_patches(type: str, imgtrans=None, labtrans=None, distribution: int = 0.75):
+def partition_patches(type: str, distribution: int = 0.75):
     types = ["train", "test"]
     if type not in types:
         raise ValueError("Invalid sim type. Expected one of: %s" % types)
@@ -36,4 +36,4 @@ def partition_patches(type: str, imgtrans=None, labtrans=None, distribution: int
                 add(test)
         count += 1
             
-    return ArrayDataset(training["imgs"], imgtrans, training["labels"], labtrans), ArrayDataset(test["imgs"], imgtrans, test["labels"], labtrans)
+    return ArrayDataset(img=training["imgs"],labels=training["labels"]), ArrayDataset(img=test["imgs"], labels=test["labels"])

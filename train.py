@@ -5,16 +5,16 @@ from ImagePatchDataset import partition_patches
 from monai.networks.nets import UNet
 from monai.losses.dice import DiceLoss
 from torch.utils.tensorboard import SummaryWriter
-
 from torch.optim.lr_scheduler import ExponentialLR
+from monai.visualize import plot_2d_or_3d_image
 
 batch_size = 5
 
 dice_loss = DiceLoss()
 
 train_dataset, val_dataset = partition_patches("train")
-train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=6)
-val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=6)
+train_dataloader = DataLoader(train_dataset, batch_size=batch_size,   num_workers=6)
+val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=6)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = UNet(
@@ -30,7 +30,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 lr_scheduler = ExponentialLR(optimizer=optimizer, gamma=0.75)
 writer = SummaryWriter()
 
-max_epochs = 24
+max_epochs = 20
 val_interval = 2
 
 best_metric = -1
@@ -70,9 +70,15 @@ for epoch in range(max_epochs):
     if (epoch + 1) % val_interval == 0:
             model.eval()
             with torch.no_grad():
+                val_images = None
+                val_labels = None
+                val_outputs = None
                 for val_data in val_dataloader:
                     val_images, val_labels = (val_data[0].to(device).type(torch.float), val_data[1].to(device).type(torch.float))  
                     metric = 1 - epoch_loss
+                    roi_size = (256, 256)
+                    sw_batch_size = 5
+                    val_outputs = model(val_images)
                 if metric > best_metric:
                     best_metric = metric
                     best_metric_epoch = epoch + 1
@@ -83,8 +89,13 @@ for epoch in range(max_epochs):
                         epoch + 1, metric, best_metric, best_metric_epoch
                     )
                 )
+                writer.add_scalar("val_mean_dice", metric, epoch + 1)
+                plot_2d_or_3d_image(val_images, epoch + 1, writer, index=0, tag="image")
+                plot_2d_or_3d_image(val_labels, epoch + 1, writer, index=0, tag="label")
+                plot_2d_or_3d_image(val_outputs, epoch + 1, writer, index=0, tag="output")
+                
+                
     print(f"train completed, best_metric: {best_metric:.4f} at epoch: {best_metric_epoch}")
-    writer.close()
         
     print(f"train completed, best_loss: {best_loss:.4f} at epoch: {best_loss_epoch}")
     writer.close()
